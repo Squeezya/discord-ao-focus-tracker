@@ -1,4 +1,5 @@
 import os
+from math import ceil
 
 from dotenv import load_dotenv
 from interactions import (
@@ -106,21 +107,32 @@ async def list_payments(ctx: CommandContext):
         members = await context_guilds[0].get_all_members()
         users = list(map(lambda member: member.user, members))
 
-    fields = _get_member_payment_embed_fields(ctx.guild, users, usages_by_user)
-    if len(fields) > 0:
-        embed = Embed(
-            title="Focus per Member",
-            fields=fields,
-            color=Color.green(),
+    embeds = []
+    per_page = 25
+    loops = ceil(len(usages_by_user) / per_page)
+    for i in range(loops):
+        start_index = i * per_page
+        end_index = start_index + per_page
+        fields = _get_member_payment_embed_fields(
+            ctx.guild, users, usages_by_user[start_index:end_index]
         )
-    else:
-        embed = Embed(
-            title="User's Focus",
-            description="All clear, nothing to see here.",
-            color=Color.green(),
+        embeds.append(
+            Embed(
+                title="Focus per Member",
+                fields=fields,
+                color=Color.green(),
+            )
+        )
+    if len(usages_by_user) == 0:
+        embeds.append(
+            Embed(
+                title="User's Focus",
+                description="All clear, nothing to see here.",
+                color=Color.green(),
+            )
         )
     await ctx.send(
-        embeds=[embed],
+        embeds=embeds,
         ephemeral=True,
     )
 
@@ -157,17 +169,29 @@ async def list_user_focus(ctx: CommandContext, user):
 
 async def create_user_focus_embed_response(ctx, guild_id: str, user_id: str):
     user_focus_data = FocusUsageRepository.get_focus_usage_list(guild_id, user_id)
+    embeds = []
     if len(user_focus_data) > 0:
-        embed = create_embed_for_focus_data(ctx.author, user_focus_data)
+        per_page = 25
+        loops = ceil(len(user_focus_data) / per_page)
+        for i in range(loops):
+            start_index = i * per_page
+            end_index = start_index + per_page
+            embeds.append(
+                create_embed_for_focus_data(
+                    ctx.author, user_focus_data[start_index:end_index]
+                )
+            )
     else:
-        embed = Embed(
-            title="User Focus",
-            description="All clear, nothing to see here.",
-            color=Color.green(),
+        embeds.append(
+            Embed(
+                title="User Focus",
+                description="All clear, nothing to see here.",
+                color=Color.green(),
+            )
         )
 
     return await ctx.send(
-        embeds=[embed],
+        embeds=embeds,
         ephemeral=True,
     )
 

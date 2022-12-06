@@ -21,6 +21,8 @@ load_dotenv()
 
 bot = Client(token=os.environ["DISCORD_TOKEN"])
 
+GUILD_ID = int(os.environ["DISCORD_GUILD_ID"])
+
 
 @bot.command(
     name="pay",
@@ -33,6 +35,7 @@ bot = Client(token=os.environ["DISCORD_TOKEN"])
             required=True,
         ),
     ],
+    scope=GUILD_ID,
 )
 async def pay(ctx: CommandContext, user: User):
     if not check_user_role(ctx):
@@ -68,9 +71,10 @@ async def pay(ctx: CommandContext, user: User):
             required=True,
         ),
     ],
+    scope=GUILD_ID,
 )
 async def set_member_focus_price(
-    ctx: CommandContext, user: User, price_per_focus: float
+        ctx: CommandContext, user: User, price_per_focus: float
 ):
     if not check_user_role(ctx):
         return await ctx.send(embeds=[no_permissions_embed()])
@@ -93,6 +97,7 @@ async def set_member_focus_price(
 @bot.command(
     name="list-payments",
     description="Command that lists all users and respective focus (Officers only).",
+    scope=GUILD_ID,
 )
 async def list_payments(ctx: CommandContext):
     if not check_user_role(ctx):
@@ -140,6 +145,7 @@ async def list_payments(ctx: CommandContext):
 @bot.command(
     name="list-my-focus",
     description="Command that lists focus for the user that executes this command.",
+    scope=GUILD_ID,
 )
 async def list_my_focus(ctx: CommandContext):
     guild_id = str(ctx.guild.id)
@@ -158,6 +164,7 @@ async def list_my_focus(ctx: CommandContext):
             required=True,
         )
     ],
+    scope=GUILD_ID,
 )
 async def list_user_focus(ctx: CommandContext, user):
     if not check_user_role(ctx):
@@ -165,6 +172,56 @@ async def list_user_focus(ctx: CommandContext, user):
     guild_id = str(ctx.guild.id)
     user_id = str(user.user.id)
     return await create_user_focus_embed_response(ctx, guild_id, user_id)
+
+
+@bot.command(
+    name="focus-craft",
+    description="Command to add focus spent (Roles: All).",
+    options=[
+        Option(
+            name="focus_usage",
+            description="Focus Usage",
+            type=OptionType.INTEGER,
+            required=True,
+        ),
+        Option(
+            name="item_crafted",
+            description="Crafted Item",
+            type=OptionType.STRING,
+            required=True,
+        ),
+        Option(
+            name="quantity",
+            description="Quantity",
+            type=OptionType.INTEGER,
+            required=True,
+        ),
+    ],
+    scope=GUILD_ID,
+)
+async def focus_craft(ctx: CommandContext, focus_usage, item_crafted, quantity):
+    if int(focus_usage) > 30000:
+        return await ctx.send(
+            embeds=[
+                Embed(
+                    title="Focus usage limit!",
+                    description="Max focus limit per action is 30k.",
+                    color=Color.red(),
+                    ephemeral=True,
+                )
+            ]
+        )
+    embed = create_embed_for_focus_data(
+        ctx.author,
+        [dict(focus_usage=focus_usage, crafted_item=item_crafted, quantity=quantity)],
+    )
+    add_user_focus_data_item(
+        ctx.guild, ctx.author.user, focus_usage, item_crafted, quantity
+    )
+    await ctx.send(
+        embeds=[embed],
+        ephemeral=True,
+    )
 
 
 async def create_user_focus_embed_response(ctx, guild_id: str, user_id: str):
@@ -192,55 +249,6 @@ async def create_user_focus_embed_response(ctx, guild_id: str, user_id: str):
 
     return await ctx.send(
         embeds=embeds,
-        ephemeral=True,
-    )
-
-
-@bot.command(
-    name="focus-craft",
-    description="Command to add focus spent (Roles: All).",
-    options=[
-        Option(
-            name="focus_usage",
-            description="Focus Usage",
-            type=OptionType.INTEGER,
-            required=True,
-        ),
-        Option(
-            name="item_crafted",
-            description="Crafted Item",
-            type=OptionType.STRING,
-            required=True,
-        ),
-        Option(
-            name="quantity",
-            description="Quantity",
-            type=OptionType.INTEGER,
-            required=True,
-        ),
-    ],
-)
-async def focus_craft(ctx: CommandContext, focus_usage, item_crafted, quantity):
-    if int(focus_usage) > 30000:
-        return await ctx.send(
-            embeds=[
-                Embed(
-                    title="Focus usage limit!",
-                    description="Max focus limit per action is 30k.",
-                    color=Color.red(),
-                    ephemeral=True,
-                )
-            ]
-        )
-    embed = create_embed_for_focus_data(
-        ctx.author,
-        [dict(focus_usage=focus_usage, crafted_item=item_crafted, quantity=quantity)],
-    )
-    add_user_focus_data_item(
-        ctx.guild, ctx.author.user, focus_usage, item_crafted, quantity
-    )
-    await ctx.send(
-        embeds=[embed],
         ephemeral=True,
     )
 
@@ -297,7 +305,7 @@ def _get_member_payment_embed_fields(guild, users, usages_by_user):
                     EmbedField(
                         name=f"{user.username}",
                         value=f"{format_number(user_focus_spent)} x {user_price_per_focus} = "
-                        f"{format_number(user_focus_spent * user_price_per_focus)}",
+                              f"{format_number(user_focus_spent * user_price_per_focus)}",
                         inline=False,
                     )
                 )

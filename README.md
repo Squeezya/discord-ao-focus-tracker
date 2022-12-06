@@ -17,6 +17,3 @@ Discord bot for tracking guild members focus usage.
    - change those values inside the file accordingly.
 3. Make sure you have Docker installed on your computer.
 4. Run `docker-compose up --build`
-   
-
-

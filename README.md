@@ -9,6 +9,7 @@ Discord bot for tracking guild members focus usage.
    - Add Bot
    - go to "OAuth2"
    - go to "URL Generator"
+   - Save this URL
    - Add the permissions as in the image: ![bot_permissions_img.png](bot_permissions_img.png)
    - Go to "Bot"
    - Reset Token
@@ -17,3 +18,4 @@ Discord bot for tracking guild members focus usage.
    - change those values inside the file accordingly.
 3. Make sure you have Docker installed on your computer.
 4. Run `docker-compose up --build`
+5. open the URL generated in step 1 (and add the bot to your server).

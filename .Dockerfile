@@ -8,6 +8,6 @@ WORKDIR /opt/bot
 COPY ./app ./app
 COPY ./main.py ./main.py
 COPY ./requirements.txt ./requirements.txt
-RUN pip install -r ./requirements.txt
 COPY ./.env ./.env
+RUN pip install -r ./requirements.txt
 CMD ["python", "-u", "main.py"]

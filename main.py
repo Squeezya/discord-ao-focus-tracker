@@ -320,7 +320,7 @@ def check_user_role(ctx: CommandContext):
         filter(lambda role: role.name == "FocusBotManager", context_guilds[0].roles),
         None,
     )
-    return guild_manager_role.id in ctx.author.roles
+    return guild_manager_role and guild_manager_role.id in ctx.author.roles
 
 
 def format_number(nr):

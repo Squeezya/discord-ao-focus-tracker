@@ -74,7 +74,7 @@ async def pay(ctx: CommandContext, user: User):
     scope=GUILD_ID,
 )
 async def set_member_focus_price(
-        ctx: CommandContext, user: User, price_per_focus: float
+    ctx: CommandContext, user: User, price_per_focus: float
 ):
     if not check_user_role(ctx):
         return await ctx.send(embeds=[no_permissions_embed()])
@@ -305,7 +305,7 @@ def _get_member_payment_embed_fields(guild, users, usages_by_user):
                     EmbedField(
                         name=f"{user.username}",
                         value=f"{format_number(user_focus_spent)} x {user_price_per_focus} = "
-                              f"{format_number(user_focus_spent * user_price_per_focus)}",
+                        f"{format_number(user_focus_spent * user_price_per_focus)}",
                         inline=False,
                     )
                 )

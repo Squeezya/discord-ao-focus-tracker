@@ -9,6 +9,8 @@ from interactions import (
     Embed,
     EmbedField,
     EmbedFooter,
+    Guild,
+    Member,
     Option,
     OptionType,
     User,
@@ -104,13 +106,6 @@ async def list_payments(ctx: CommandContext):
         return await ctx.send(embeds=[no_permissions_embed()])
     guild_id = str(ctx.guild_id)
     usages_by_user = FocusUsageRepository.get_focus_usage_for_guild_by_user(guild_id)
-    context_guilds = list(
-        filter(lambda guild: guild.id == ctx.guild_id, ctx.client.guilds)
-    )
-    users = []
-    if len(context_guilds) > 0:
-        members = await context_guilds[0].get_all_members()
-        users = list(map(lambda member: member.user, members))
 
     embeds = []
     per_page = 25
@@ -118,8 +113,8 @@ async def list_payments(ctx: CommandContext):
     for i in range(loops):
         start_index = i * per_page
         end_index = start_index + per_page
-        fields = _get_member_payment_embed_fields(
-            ctx.guild, users, usages_by_user[start_index:end_index]
+        fields = await _get_member_payment_embed_fields(
+            ctx.guild, usages_by_user[start_index:end_index]
         )
         embeds.append(
             Embed(
@@ -224,7 +219,9 @@ async def focus_craft(ctx: CommandContext, focus_usage, item_crafted, quantity):
     )
 
 
-async def create_user_focus_embed_response(ctx, guild_id: str, user_id: str):
+async def create_user_focus_embed_response(
+    ctx: CommandContext, guild_id: str, user_id: str
+):
     user_focus_data = FocusUsageRepository.get_focus_usage_list(guild_id, user_id)
     embeds = []
     if len(user_focus_data) > 0:
@@ -253,7 +250,7 @@ async def create_user_focus_embed_response(ctx, guild_id: str, user_id: str):
     )
 
 
-def create_embed_for_focus_data(member, user_focus_data: list[dict]):
+def create_embed_for_focus_data(member: Member, user_focus_data: list[dict]):
     total_user_focus = sum(
         map(lambda user_usage: user_usage.get("focus_usage"), user_focus_data)
     )
@@ -272,7 +269,9 @@ def create_embed_for_focus_data(member, user_focus_data: list[dict]):
     )
 
 
-def add_user_focus_data_item(guild, user, focus_usage, item_crafted, quantity):
+def add_user_focus_data_item(
+    guild: Guild, user: User, focus_usage, item_crafted, quantity
+):
     guild_id = str(guild.id)
     user_id = str(user.id)
     FocusUsageRepository.create_focus_usage(
@@ -280,15 +279,16 @@ def add_user_focus_data_item(guild, user, focus_usage, item_crafted, quantity):
     )
 
 
-def _get_member_payment_embed_fields(guild, users, usages_by_user):
+async def _get_member_payment_embed_fields(guild: Guild, usages_by_user):
     fields = []
     guild_id = str(guild.id)
     prices_per_user = FocusPriceRepository.get_prices_for_guild(guild_id)
     for user_usage in usages_by_user:
         user_id = user_usage.get("user_id")
-        filtered_users = list(filter(lambda u, u_id=user_id: u.id == u_id, users))
-        user = filtered_users[0] if len(filtered_users) > 0 else None
-        if user:
+        member = await guild.get_member(user_id)
+
+        if member and member.user:
+            user = member.user
             user_focus_spent = user_usage.get("usage_sum")
             if user_focus_spent > 0:
                 user_price = next(
@@ -312,7 +312,7 @@ def _get_member_payment_embed_fields(guild, users, usages_by_user):
     return fields
 
 
-def check_user_role(ctx):
+def check_user_role(ctx: CommandContext):
     context_guilds = list(
         filter(lambda guild: guild.id == ctx.guild_id, ctx.client.guilds)
     )

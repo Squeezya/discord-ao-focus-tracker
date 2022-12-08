@@ -50,7 +50,22 @@ async def pay(ctx: CommandContext, user: User, amount: int):
         return await ctx.send(embeds=[no_permissions_embed()])
     user_id = str(user.id)
     guild_id = str(ctx.guild_id)
-    silver_amount_owed = FocusPriceRepository.get_user_balance(guild_id, user_id)
+
+    # balance worth
+    user_price = FocusPriceRepository.get_user_focus_price(guild_id, user_id)
+    user_price_per_focus = user_price.get("focus_price") if user_price else 0
+    user_balance = (
+        user_price.get("balance") if user_price and user_price.get("balance") else 0
+    )
+
+    # focus worth
+    user_usages = FocusUsageRepository.get_focus_usage_list(guild_id, user_id)
+    total_user_focus = sum(
+        map(lambda user_usage: user_usage.get("focus_usage"), user_usages)
+    )
+
+    # total worth
+    silver_amount_owed = user_balance + total_user_focus * user_price_per_focus
 
     FocusPriceRepository.set_user_balance(
         guild_id, user_id, silver_amount_owed - amount

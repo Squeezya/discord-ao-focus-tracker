@@ -36,15 +36,28 @@ GUILD_ID = int(os.environ["DISCORD_GUILD_ID"])
             type=OptionType.USER,
             required=True,
         ),
+        Option(
+            name="amount",
+            description="Amount",
+            type=OptionType.INTEGER,
+            required=True,
+        ),
     ],
     scope=GUILD_ID,
 )
-async def pay(ctx: CommandContext, user: User):
+async def pay(ctx: CommandContext, user: User, amount: int):
     if not check_user_role(ctx):
         return await ctx.send(embeds=[no_permissions_embed()])
     user_id = str(user.id)
     guild_id = str(ctx.guild_id)
-    FocusUsageRepository.set_user_paid(guild_id, user_id)
+    silver_amount_owed = FocusPriceRepository.get_user_balance(guild_id, user_id)
+
+    FocusPriceRepository.set_user_balance(
+        guild_id, user_id, silver_amount_owed - amount
+    )
+    if amount >= silver_amount_owed:
+        FocusUsageRepository.set_user_paid(guild_id, user_id)
+
     return await ctx.send(
         embeds=[
             Embed(
@@ -146,6 +159,66 @@ async def list_my_focus(ctx: CommandContext):
     guild_id = str(ctx.guild.id)
     user_id = str(ctx.author.user.id)
     return await create_user_focus_embed_response(ctx, guild_id, user_id)
+
+
+@bot.command(
+    name="edit-craft",
+    description="Edit craft command.",
+    options=[
+        Option(
+            name="obj_id",
+            description="Entry Id",
+            type=OptionType.INTEGER,
+            required=True,
+        ),
+        Option(
+            name="focus_usage",
+            description="Focus Usage",
+            type=OptionType.INTEGER,
+            required=True,
+        ),
+        Option(
+            name="item_crafted",
+            description="Crafted Item",
+            type=OptionType.STRING,
+            required=True,
+        ),
+        Option(
+            name="quantity",
+            description="Quantity",
+            type=OptionType.INTEGER,
+            required=True,
+        ),
+    ],
+    scope=GUILD_ID,
+)
+async def edit_craft(ctx: CommandContext, obj_id, focus_usage, item_crafted, quantity):
+    guild_id = str(ctx.guild.id)
+    user_id = str(ctx.author.user.id)
+    nr_rows = FocusUsageRepository.edit_focus_usage(
+        guild_id, user_id, obj_id, focus_usage, item_crafted, quantity
+    )
+    embeds = []
+    if nr_rows > 0:
+        embeds.append(
+            Embed(
+                title="Edit successful!",
+                color=Color.green(),
+                ephemeral=True,
+            )
+        )
+    else:
+        embeds.append(
+            Embed(
+                title="Nothing was updated, check if you inserted the correct information.",
+                color=Color.red(),
+                ephemeral=True,
+            )
+        )
+    return await ctx.send(
+        embeds=embeds,
+        ephemeral=True,
+    )
 
 
 @bot.command(
@@ -259,8 +332,8 @@ def create_embed_for_focus_data(member: Member, user_focus_data: list[dict]):
         color=Color.green(),
         fields=[
             EmbedField(
-                name=f"{focus_entry.get('item_crafted')} x {focus_entry.get('quantity')}",
-                value=f"{format_number(focus_entry.get('focus_usage'))}",
+                name=f"Crafted {focus_entry.get('quantity')} x {focus_entry.get('item_crafted')}.",
+                value=f"Focus: {format_number(focus_entry.get('focus_usage'))} (ID: {focus_entry.get('id')})",
                 inline=True,
             )
             for focus_entry in user_focus_data
@@ -301,11 +374,16 @@ async def _get_member_payment_embed_fields(guild: Guild, usages_by_user):
                 user_price_per_focus = (
                     user_price.get("focus_price") if user_price else 0
                 )
+                user_balance = (
+                    user_price.get("balance")
+                    if user_price and user_price.get("balance")
+                    else 0
+                )
                 fields.append(
                     EmbedField(
-                        name=f"{user.username}",
-                        value=f"{format_number(user_focus_spent)} x {user_price_per_focus} = "
-                        f"{format_number(user_focus_spent * user_price_per_focus)}",
+                        name=f"Total of {user.username} (Balance={user_balance})",
+                        value=f"{format_number(user_focus_spent)} (focus) x {user_price_per_focus} (silver) = "
+                        f"{format_number(user_focus_spent * user_price_per_focus)} (silver)",
                         inline=False,
                     )
                 )

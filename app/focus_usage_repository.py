@@ -23,7 +23,7 @@ class FocusUsageRepository:
     def get_focus_usage_list(guild_id, user_id):
         with get_cursor() as cursor:
             select_query = """
-                SELECT quantity, focus_usage, item_crafted
+                SELECT id, quantity, focus_usage, item_crafted
                 FROM focus_usage
                 WHERE guild_id = %s AND user_id = %s AND is_paid is not true;
             """
@@ -35,9 +35,10 @@ class FocusUsageRepository:
             rows = cursor.fetchall()
 
             dict_result = []
-            for quantity, focus_usage, item_crafted in rows:
+            for obj_id, quantity, focus_usage, item_crafted in rows:
                 dict_result.append(
                     dict(
+                        id=obj_id,
                         quantity=quantity,
                         focus_usage=focus_usage,
                         item_crafted=item_crafted,
@@ -77,3 +78,34 @@ class FocusUsageRepository:
                 item_crafted,
             )
             cursor.execute(select_query, item_tuple)
+
+    @staticmethod
+    def edit_focus_usage(
+        guild_id,
+        user_id,
+        obj_id: int,
+        focus_usage: float,
+        item_crafted: str,
+        quantity: int,
+    ):
+        with get_cursor() as cursor:
+            select_query = """
+                UPDATE focus_usage
+                SET focus_usage = %s,
+                item_crafted = %s,
+                quantity = %s
+                WHERE guild_id = %s AND
+                    user_id = %s AND
+                    id = %s AND
+                    is_paid = false
+            """
+            item_tuple = (
+                focus_usage,
+                item_crafted,
+                quantity,
+                guild_id,
+                user_id,
+                obj_id,
+            )
+            cursor.execute(select_query, item_tuple)
+            return cursor.rowcount

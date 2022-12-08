@@ -2,7 +2,8 @@ CREATE TABLE focus_price(
     id SERIAL PRIMARY KEY,
     guild_id VARCHAR(30),
     user_id VARCHAR(30),
-    focus_price NUMERIC(7, 2)
+    focus_price NUMERIC(7, 2),
+    balance INTEGER
 );
 CREATE UNIQUE INDEX uniq_idx_focus_price ON focus_price (guild_id, user_id);
 

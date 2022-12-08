@@ -77,7 +77,7 @@ async def pay(ctx: CommandContext, user: User, amount: int):
         embeds=[
             Embed(
                 title="Success!",
-                description=f"Member {user.name} was paid.",
+                description=f"Member {user.name} was paid {format_number(amount)} silver.",
                 color=Color.green(),
             )
         ]

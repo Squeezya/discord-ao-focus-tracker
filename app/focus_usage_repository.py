@@ -64,11 +64,12 @@ class FocusUsageRepository:
     @staticmethod
     def create_focus_usage(
         guild_id, user_id, focus_usage: float, item_crafted: str, quantity: int
-    ):
+    ) -> int:
         with get_cursor() as cursor:
             select_query = """
                 INSERT INTO focus_usage (guild_id, user_id, quantity, focus_usage, item_crafted)
-                VALUES (%s, %s, %s, %s, %s);
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id;
             """
             item_tuple = (
                 guild_id,
@@ -78,6 +79,7 @@ class FocusUsageRepository:
                 item_crafted,
             )
             cursor.execute(select_query, item_tuple)
+            return cursor.fetchone()[0]
 
     @staticmethod
     def edit_focus_usage(
@@ -97,7 +99,7 @@ class FocusUsageRepository:
                 WHERE guild_id = %s AND
                     user_id = %s AND
                     id = %s AND
-                    is_paid = false
+                    is_paid is not true
             """
             item_tuple = (
                 focus_usage,

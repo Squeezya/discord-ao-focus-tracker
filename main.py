@@ -23,7 +23,9 @@ load_dotenv()
 
 bot = Client(token=os.environ["DISCORD_TOKEN"])
 
-GUILD_ID = int(os.environ["DISCORD_GUILD_ID"])
+GUILD_IDS = list(
+    map(lambda guild_id: int(guild_id), os.environ["DISCORD_GUILD_IDS"].split(","))
+)
 
 
 @bot.command(
@@ -43,7 +45,7 @@ GUILD_ID = int(os.environ["DISCORD_GUILD_ID"])
             required=True,
         ),
     ],
-    scope=GUILD_ID,
+    scope=GUILD_IDS,
 )
 async def pay(ctx: CommandContext, user: User, amount: int):
     if not check_user_role(ctx):
@@ -67,11 +69,13 @@ async def pay(ctx: CommandContext, user: User, amount: int):
     # total worth
     silver_amount_owed = user_balance + total_user_focus * user_price_per_focus
 
-    FocusPriceRepository.set_user_balance(
-        guild_id, user_id, silver_amount_owed - amount
-    )
     if amount >= silver_amount_owed:
+        FocusPriceRepository.set_user_balance(
+            guild_id, user_id, silver_amount_owed - amount
+        )
         FocusUsageRepository.set_user_paid(guild_id, user_id)
+    else:
+        FocusPriceRepository.set_user_balance(guild_id, user_id, user_balance - amount)
 
     return await ctx.send(
         embeds=[
@@ -101,7 +105,7 @@ async def pay(ctx: CommandContext, user: User, amount: int):
             required=True,
         ),
     ],
-    scope=GUILD_ID,
+    scope=GUILD_IDS,
 )
 async def set_member_focus_price(
     ctx: CommandContext, user: User, price_per_focus: float
@@ -127,7 +131,7 @@ async def set_member_focus_price(
 @bot.command(
     name="list-payments",
     description="Command that lists all users and respective focus (Officers only).",
-    scope=GUILD_ID,
+    scope=GUILD_IDS,
 )
 async def list_payments(ctx: CommandContext):
     if not check_user_role(ctx):
@@ -168,7 +172,7 @@ async def list_payments(ctx: CommandContext):
 @bot.command(
     name="list-my-focus",
     description="Command that lists focus for the user that executes this command.",
-    scope=GUILD_ID,
+    scope=GUILD_IDS,
 )
 async def list_my_focus(ctx: CommandContext):
     guild_id = str(ctx.guild.id)
@@ -205,7 +209,7 @@ async def list_my_focus(ctx: CommandContext):
             required=True,
         ),
     ],
-    scope=GUILD_ID,
+    scope=GUILD_IDS,
 )
 async def edit_craft(ctx: CommandContext, obj_id, focus_usage, item_crafted, quantity):
     guild_id = str(ctx.guild.id)
@@ -216,10 +220,16 @@ async def edit_craft(ctx: CommandContext, obj_id, focus_usage, item_crafted, qua
     embeds = []
     if nr_rows > 0:
         embeds.append(
-            Embed(
-                title="Edit successful!",
-                color=Color.green(),
-                ephemeral=True,
+            create_embed_for_focus_data(
+                "Edit successful!",
+                [
+                    dict(
+                        id=obj_id,
+                        focus_usage=focus_usage,
+                        item_crafted=item_crafted,
+                        quantity=quantity,
+                    )
+                ],
             )
         )
     else:
@@ -247,7 +257,7 @@ async def edit_craft(ctx: CommandContext, obj_id, focus_usage, item_crafted, qua
             required=True,
         )
     ],
-    scope=GUILD_ID,
+    scope=GUILD_IDS,
 )
 async def list_user_focus(ctx: CommandContext, user):
     if not check_user_role(ctx):
@@ -280,7 +290,7 @@ async def list_user_focus(ctx: CommandContext, user):
             required=True,
         ),
     ],
-    scope=GUILD_ID,
+    scope=GUILD_IDS,
 )
 async def focus_craft(ctx: CommandContext, focus_usage, item_crafted, quantity):
     if int(focus_usage) > 30000:
@@ -294,12 +304,19 @@ async def focus_craft(ctx: CommandContext, focus_usage, item_crafted, quantity):
                 )
             ]
         )
-    embed = create_embed_for_focus_data(
-        ctx.author,
-        [dict(focus_usage=focus_usage, crafted_item=item_crafted, quantity=quantity)],
-    )
-    add_user_focus_data_item(
+    obj_id = add_user_focus_data_item(
         ctx.guild, ctx.author.user, focus_usage, item_crafted, quantity
+    )
+    embed = create_embed_for_focus_data(
+        "New craft created",
+        [
+            dict(
+                id=obj_id,
+                focus_usage=focus_usage,
+                item_crafted=item_crafted,
+                quantity=quantity,
+            )
+        ],
     )
     await ctx.send(
         embeds=[embed],
@@ -320,7 +337,7 @@ async def create_user_focus_embed_response(
             end_index = start_index + per_page
             embeds.append(
                 create_embed_for_focus_data(
-                    ctx.author, user_focus_data[start_index:end_index]
+                    f"{ctx.author.name}", user_focus_data[start_index:end_index]
                 )
             )
     else:
@@ -338,31 +355,35 @@ async def create_user_focus_embed_response(
     )
 
 
-def create_embed_for_focus_data(member: Member, user_focus_data: list[dict]):
+def create_embed_for_focus_data(title: str, user_focus_data: list[dict]):
     total_user_focus = sum(
         map(lambda user_usage: user_usage.get("focus_usage"), user_focus_data)
     )
     return Embed(
-        title=f"{member.name}",
+        title=f"{title}",
         color=Color.green(),
         fields=[
             EmbedField(
-                name=f"Crafted {focus_entry.get('quantity')} x {focus_entry.get('item_crafted')}.",
+                name=f"Item: {focus_entry.get('item_crafted')} Quantity: {focus_entry.get('quantity')}",
                 value=f"Focus: {format_number(focus_entry.get('focus_usage'))} (ID: {focus_entry.get('id')})",
                 inline=True,
             )
             for focus_entry in user_focus_data
         ],
-        footer=EmbedFooter(text=f"Total focus: {format_number(total_user_focus)}"),
+        footer=EmbedFooter(
+            text=f"Total focus: {format_number(total_user_focus)}"
+            if len(user_focus_data) > 1
+            else None
+        ),
     )
 
 
 def add_user_focus_data_item(
     guild: Guild, user: User, focus_usage, item_crafted, quantity
-):
+) -> int:
     guild_id = str(guild.id)
     user_id = str(user.id)
-    FocusUsageRepository.create_focus_usage(
+    return FocusUsageRepository.create_focus_usage(
         guild_id, user_id, focus_usage, item_crafted, quantity
     )
 
@@ -396,9 +417,9 @@ async def _get_member_payment_embed_fields(guild: Guild, usages_by_user):
                 )
                 fields.append(
                     EmbedField(
-                        name=f"Total of {user.username} (Balance={user_balance})",
-                        value=f"{format_number(user_focus_spent)} (focus) x {user_price_per_focus} (silver) = "
-                        f"{format_number(user_focus_spent * user_price_per_focus)} (silver)",
+                        name=f"Total of {user.username} (Balance: {format_number(user_balance)})",
+                        value=f"{format_number(user_focus_spent)} (focus) x {format_number(user_price_per_focus)}"
+                        f" (silver) = {format_number(user_focus_spent * user_price_per_focus)}",
                         inline=False,
                     )
                 )

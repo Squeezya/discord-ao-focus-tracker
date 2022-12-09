@@ -61,10 +61,10 @@ class FocusPriceRepository:
 
             if row:
                 return dict(
-                    id=row.get("id"),
-                    user_id=row.get("user_id"),
-                    focus_price=row.get("focus_price"),
-                    balance=row.get("balance"),
+                    id=row[0],
+                    user_id=row[1],
+                    focus_price=row[2],
+                    balance=row[3],
                 )
             return None
 
